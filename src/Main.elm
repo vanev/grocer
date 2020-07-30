@@ -21,6 +21,7 @@ type alias Item =
     , description : String
     , createdAt : Time.Posix
     , completedAt : Maybe Time.Posix
+    , deletedAt : Maybe Time.Posix
     }
 
 
@@ -44,6 +45,8 @@ type Msg
     | ItemDescriptionChange Id String
     | ItemCompletedChange Id Bool
     | ItemCompletedTimestamp Id Time.Posix
+    | ItemDeleteClick Id
+    | ItemDeleteTimestamp Id Time.Posix
 
 
 withCmdNone : Model -> ( Model, Cmd Msg )
@@ -69,7 +72,7 @@ handleCreateItemTimestamp timestamp model =
             fromInt (size model.items)
 
         newItem =
-            Item id "" timestamp Nothing
+            Item id "" timestamp Nothing Nothing
 
         items =
             insert id newItem model.items
@@ -121,6 +124,40 @@ handleItemCompletedTimestamp id completedAt model =
         |> withCmdNone
 
 
+handleItemDeleteClick : Id -> Model -> ( Model, Cmd Msg )
+handleItemDeleteClick id model =
+    let
+        isDeleted =
+            Dict.get id model.items |> Maybe.andThen .deletedAt |> isJust
+    in
+    if isDeleted then
+        let
+            setDeletedAt item =
+                { item | deletedAt = Nothing }
+
+            items =
+                Dict.update id (Maybe.map setDeletedAt) model.items
+        in
+        { model | items = items }
+            |> withCmdNone
+
+    else
+        ( model, Task.perform (ItemDeleteTimestamp id) Time.now )
+
+
+handleItemDeleteTimestamp : Id -> Time.Posix -> Model -> ( Model, Cmd Msg )
+handleItemDeleteTimestamp id deletedAt model =
+    let
+        setDeletedAt item =
+            { item | deletedAt = Just deletedAt }
+
+        items =
+            Dict.update id (Maybe.map setDeletedAt) model.items
+    in
+    { model | items = items }
+        |> withCmdNone
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -141,6 +178,12 @@ update msg model =
 
         ItemCompletedTimestamp id timestamp ->
             handleItemCompletedTimestamp id timestamp model
+
+        ItemDeleteClick id ->
+            handleItemDeleteClick id model
+
+        ItemDeleteTimestamp id timestamp ->
+            handleItemDeleteTimestamp id timestamp model
 
 
 subscriptions : Model -> Sub Msg
@@ -180,12 +223,26 @@ itemDescriptionView id description =
         []
 
 
+itemDeletedView : Id -> Maybe Time.Posix -> Html Msg
+itemDeletedView id deletedAt =
+    let
+        label =
+            if isJust deletedAt then
+                "Undelete"
+
+            else
+                "Delete"
+    in
+    button [ onClick (ItemDeleteClick id) ] [ text label ]
+
+
 itemView : Item -> Html Msg
 itemView item =
     li
         []
         [ itemCompletedView item.id item.completedAt
         , itemDescriptionView item.id item.description
+        , itemDeletedView item.id item.deletedAt
         ]
 
 
