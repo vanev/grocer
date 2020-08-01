@@ -1,10 +1,12 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Browser exposing (element)
 import Dict exposing (Dict, insert, size, values)
 import Html exposing (Html, button, div, input, label, li, text, ul)
 import Html.Attributes exposing (checked, class, classList, placeholder, type_, value)
 import Html.Events exposing (onCheck, onClick, onInput)
+import Json.Decode as D
+import Json.Encode as E
 import List exposing (map)
 import Maybe.Extra exposing (isJust)
 import String exposing (fromInt)
@@ -31,11 +33,74 @@ type alias Model =
     }
 
 
-initial : Model
-initial =
-    { name = ""
-    , items = Dict.empty
-    }
+encodeMaybe : (v -> E.Value) -> Maybe v -> E.Value
+encodeMaybe encodeValue maybeValue =
+    case maybeValue of
+        Just value ->
+            encodeValue value
+
+        Nothing ->
+            E.null
+
+
+encodePosix : Time.Posix -> E.Value
+encodePosix =
+    E.int << Time.posixToMillis
+
+
+encodeItem : Item -> E.Value
+encodeItem item =
+    E.object
+        [ ( "id", E.string item.id )
+        , ( "description", E.string item.description )
+        , ( "createdAt", encodePosix item.createdAt )
+        , ( "completedAt", encodeMaybe encodePosix item.completedAt )
+        , ( "deletedAt", encodeMaybe encodePosix item.deletedAt )
+        ]
+
+
+encode : Model -> E.Value
+encode model =
+    E.object
+        [ ( "name", E.string model.name )
+        , ( "items", E.dict identity encodeItem model.items )
+        ]
+
+
+decodePosix : D.Decoder Time.Posix
+decodePosix =
+    D.map Time.millisToPosix D.int
+
+
+decodeItem : D.Decoder Item
+decodeItem =
+    D.map5 Item
+        (D.field "id" D.string)
+        (D.field "description" D.string)
+        (D.field "createdAt" decodePosix)
+        (D.field "completedAt" (D.maybe decodePosix))
+        (D.field "deletedAt" (D.maybe decodePosix))
+
+
+decode : D.Decoder Model
+decode =
+    D.map2 Model
+        (D.field "name" D.string)
+        (D.field "items" (D.dict decodeItem))
+
+
+init : E.Value -> ( Model, Cmd Msg )
+init flags =
+    ( case D.decodeValue decode flags of
+        Ok model ->
+            model
+
+        Err _ ->
+            { name = ""
+            , items = Dict.empty
+            }
+    , Cmd.none
+    )
 
 
 type Msg
@@ -186,6 +251,20 @@ update msg model =
             handleItemDeleteTimestamp id timestamp model
 
 
+port storeData : E.Value -> Cmd msg
+
+
+updateWithStorage : Msg -> Model -> ( Model, Cmd Msg )
+updateWithStorage msg oldModel =
+    let
+        ( newModel, cmds ) =
+            update msg oldModel
+    in
+    ( newModel
+    , Cmd.batch [ storeData (encode newModel), cmds ]
+    )
+
+
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.none
@@ -276,11 +355,11 @@ view model =
         ]
 
 
-main : Program () Model Msg
+main : Program E.Value Model Msg
 main =
     element
-        { init = \() -> ( initial, Cmd.none )
+        { init = init
         , view = view
-        , update = update
+        , update = updateWithStorage
         , subscriptions = subscriptions
         }
