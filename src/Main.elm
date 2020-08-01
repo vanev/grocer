@@ -1,17 +1,40 @@
 port module Main exposing (main)
 
 import Browser exposing (element)
-import Dict exposing (Dict, insert, size, values)
-import Html exposing (Html, button, div, input, label, li, text, ul)
-import Html.Attributes exposing (checked, class, classList, placeholder, type_, value)
+import Dict exposing (Dict, insert, size)
+import Html exposing (Attribute, Html, button, div, input, label, li, text, ul)
+import Html.Attributes exposing (attribute, checked, class, classList, placeholder, type_, value)
 import Html.Events exposing (onCheck, onClick, onInput)
 import Json.Decode as D
 import Json.Encode as E
-import List exposing (map)
+import List exposing (length, map, member)
+import List.Extra exposing (elemIndex, remove, splitAt, unique)
 import Maybe.Extra exposing (isJust)
 import String exposing (fromInt)
 import Task
 import Time
+
+
+onDragStart : m -> Attribute m
+onDragStart =
+    Html.Events.on "dragstart" << D.succeed
+
+
+onDragEnd : m -> Attribute m
+onDragEnd =
+    Html.Events.on "dragend" << D.succeed
+
+
+onDragOver : m -> Attribute m
+onDragOver msg =
+    Html.Events.preventDefaultOn "dragover" <|
+        D.succeed ( msg, True )
+
+
+onDrop : m -> Attribute m
+onDrop msg =
+    Html.Events.preventDefaultOn "drop" <|
+        D.succeed ( msg, True )
 
 
 type alias Id =
@@ -30,6 +53,8 @@ type alias Item =
 type alias Model =
     { name : String
     , items : Dict Id Item
+    , ordering : List Id
+    , itemBeingDragged : Maybe Id
     }
 
 
@@ -64,6 +89,8 @@ encode model =
     E.object
         [ ( "name", E.string model.name )
         , ( "items", E.dict identity encodeItem model.items )
+        , ( "ordering", E.list E.string model.ordering )
+        , ( "itemBeingDragged", E.null )
         ]
 
 
@@ -84,9 +111,11 @@ decodeItem =
 
 decode : D.Decoder Model
 decode =
-    D.map2 Model
+    D.map4 Model
         (D.field "name" D.string)
         (D.field "items" (D.dict decodeItem))
+        (D.field "ordering" (D.list D.string))
+        (D.field "itemBeingDragged" (D.maybe D.string))
 
 
 init : E.Value -> ( Model, Cmd Msg )
@@ -98,6 +127,8 @@ init flags =
         Err _ ->
             { name = ""
             , items = Dict.empty
+            , ordering = []
+            , itemBeingDragged = Nothing
             }
     , Cmd.none
     )
@@ -112,6 +143,10 @@ type Msg
     | ItemCompletedTimestamp Id Time.Posix
     | ItemDeleteClick Id
     | ItemDeleteTimestamp Id Time.Posix
+    | ItemDragStart Id
+    | ItemDragEnd Id
+    | ItemDragOver Id
+    | ItemDrop Id
 
 
 withCmdNone : Model -> ( Model, Cmd Msg )
@@ -137,12 +172,23 @@ handleCreateItemTimestamp timestamp model =
             fromInt (size model.items)
 
         newItem =
-            Item id "" timestamp Nothing Nothing
+            { id = id
+            , description = ""
+            , createdAt = timestamp
+            , completedAt = Nothing
+            , deletedAt = Nothing
+            }
 
         items =
             insert id newItem model.items
+
+        ordering =
+            model.ordering ++ [ id ]
     in
-    { model | items = items }
+    { model
+        | items = items
+        , ordering = ordering
+    }
         |> withCmdNone
 
 
@@ -223,6 +269,66 @@ handleItemDeleteTimestamp id deletedAt model =
         |> withCmdNone
 
 
+handleItemDragStart : Id -> Model -> ( Model, Cmd Msg )
+handleItemDragStart id model =
+    { model
+        | itemBeingDragged = Just id
+        , ordering = remove id model.ordering
+    }
+        |> withCmdNone
+
+
+handleItemDragEnd : Id -> Model -> ( Model, Cmd Msg )
+handleItemDragEnd _ model =
+    case model.itemBeingDragged of
+        Nothing ->
+            model
+                |> withCmdNone
+
+        Just id ->
+            let
+                ordering =
+                    if member id model.ordering then
+                        model.ordering
+
+                    else
+                        model.ordering ++ [ id ]
+            in
+            { model
+                | itemBeingDragged = Nothing
+                , ordering = ordering
+            }
+                |> withCmdNone
+
+
+handleItemDragOver : Id -> Model -> ( Model, Cmd Msg )
+handleItemDragOver _ model =
+    model |> withCmdNone
+
+
+handleItemDrop : Id -> Model -> ( Model, Cmd Msg )
+handleItemDrop id model =
+    case model.itemBeingDragged of
+        Nothing ->
+            model
+                |> withCmdNone
+
+        Just idBeingDragged ->
+            let
+                index =
+                    elemIndex id model.ordering
+                        |> Maybe.withDefault (length model.ordering)
+
+                ( inits, tail ) =
+                    splitAt index model.ordering
+
+                ordering =
+                    inits ++ idBeingDragged :: tail
+            in
+            { model | ordering = unique ordering }
+                |> withCmdNone
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -249,6 +355,18 @@ update msg model =
 
         ItemDeleteTimestamp id timestamp ->
             handleItemDeleteTimestamp id timestamp model
+
+        ItemDragStart id ->
+            handleItemDragStart id model
+
+        ItemDragEnd id ->
+            handleItemDragEnd id model
+
+        ItemDragOver id ->
+            handleItemDragOver id model
+
+        ItemDrop id ->
+            handleItemDrop id model
 
 
 port storeData : E.Value -> Cmd msg
@@ -325,6 +443,11 @@ itemView item =
             [ ( "_deleted", isJust item.deletedAt )
             , ( "_completed", isJust item.completedAt )
             ]
+        , attribute "draggable" "true"
+        , onDragStart (ItemDragStart item.id)
+        , onDragEnd (ItemDragEnd item.id)
+        , onDragOver (ItemDragOver item.id)
+        , onDrop (ItemDrop item.id)
         ]
         [ itemCompletedView item.id item.completedAt
         , itemDescriptionView item.id item.description
@@ -332,9 +455,13 @@ itemView item =
         ]
 
 
-itemsView : Dict Id Item -> Html Msg
-itemsView =
-    ul [ class "List--Items" ] << map itemView << values
+itemsView : List Id -> Dict Id Item -> Html Msg
+itemsView ordering allItems =
+    let
+        items =
+            List.filterMap (\id -> Dict.get id allItems) ordering
+    in
+    ul [ class "List--Items" ] <| map itemView items
 
 
 createItemView : Html Msg
@@ -350,7 +477,7 @@ view : Model -> Html Msg
 view model =
     div [ class "List" ]
         [ nameView model.name
-        , itemsView model.items
+        , itemsView model.ordering model.items
         , createItemView
         ]
 

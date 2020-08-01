@@ -14,3 +14,7 @@ const app = Elm.Main.init({
 app.ports.storeData.subscribe((data) => {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 });
+
+document.body.addEventListener("dragstart", (event) => {
+  event.dataTransfer.setData("text/plain", null);
+});
