@@ -2,8 +2,8 @@ module Main exposing (main)
 
 import Browser exposing (element)
 import Dict exposing (Dict, insert, size, values)
-import Html exposing (Html, button, div, input, li, text, ul)
-import Html.Attributes exposing (checked, placeholder, type_, value)
+import Html exposing (Html, button, div, input, label, li, text, ul)
+import Html.Attributes exposing (checked, class, classList, placeholder, type_, value)
 import Html.Events exposing (onCheck, onClick, onInput)
 import List exposing (map)
 import Maybe.Extra exposing (isJust)
@@ -195,6 +195,7 @@ nameView : String -> Html Msg
 nameView name =
     input
         [ type_ "text"
+        , class "List--Name"
         , placeholder "My Grocery List"
         , value name
         , onInput ListNameChange
@@ -204,18 +205,23 @@ nameView name =
 
 itemCompletedView : Id -> Maybe Time.Posix -> Html Msg
 itemCompletedView id completedAt =
-    input
-        [ type_ "checkbox"
-        , checked (isJust completedAt)
-        , onCheck (ItemCompletedChange id)
+    div [ class "List--Item--Completed" ]
+        [ input
+            [ type_ "checkbox"
+            , checked (isJust completedAt)
+            , onCheck (ItemCompletedChange id)
+            , Html.Attributes.id id
+            ]
+            []
+        , label [ Html.Attributes.for id ] []
         ]
-        []
 
 
 itemDescriptionView : Id -> String -> Html Msg
 itemDescriptionView id description =
     input
         [ type_ "text"
+        , class "List--Item--Description"
         , onInput (ItemDescriptionChange id)
         , value description
         , placeholder "milk or eggs or chocolate"
@@ -224,22 +230,23 @@ itemDescriptionView id description =
 
 
 itemDeletedView : Id -> Maybe Time.Posix -> Html Msg
-itemDeletedView id deletedAt =
-    let
-        label =
-            if isJust deletedAt then
-                "Undelete"
-
-            else
-                "Delete"
-    in
-    button [ onClick (ItemDeleteClick id) ] [ text label ]
+itemDeletedView id _ =
+    button
+        [ class "List--Item--Deleted"
+        , onClick (ItemDeleteClick id)
+        ]
+        [ text "❌" ]
 
 
 itemView : Item -> Html Msg
 itemView item =
     li
-        []
+        [ class "List--Item"
+        , classList
+            [ ( "_deleted", isJust item.deletedAt )
+            , ( "_completed", isJust item.completedAt )
+            ]
+        ]
         [ itemCompletedView item.id item.completedAt
         , itemDescriptionView item.id item.description
         , itemDeletedView item.id item.deletedAt
@@ -248,17 +255,21 @@ itemView item =
 
 itemsView : Dict Id Item -> Html Msg
 itemsView =
-    ul [] << map itemView << values
+    ul [ class "List--Items" ] << map itemView << values
 
 
 createItemView : Html Msg
 createItemView =
-    button [ onClick CreateItemClick ] [ text "Add Item" ]
+    button
+        [ class "List--CreateItem"
+        , onClick CreateItemClick
+        ]
+        [ text "Add Item" ]
 
 
 view : Model -> Html Msg
 view model =
-    div []
+    div [ class "List" ]
         [ nameView model.name
         , itemsView model.items
         , createItemView
