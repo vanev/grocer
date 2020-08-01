@@ -10,6 +10,7 @@
     "build": "parcel build index.html"
   },
   "devDependencies": {
+    "firebase-tools": "^8.6.0",
     "parcel-bundler": "^1.12.4",
     "sass": "^1.26.10"
   }
