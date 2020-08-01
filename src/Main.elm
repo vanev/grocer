@@ -249,7 +249,10 @@ handleItemDeleteClick id model =
             items =
                 Dict.update id (Maybe.map setDeletedAt) model.items
         in
-        { model | items = items }
+        { model
+            | items = items
+            , ordering = model.ordering ++ [ id ]
+        }
             |> withCmdNone
 
     else
@@ -265,7 +268,10 @@ handleItemDeleteTimestamp id deletedAt model =
         items =
             Dict.update id (Maybe.map setDeletedAt) model.items
     in
-    { model | items = items }
+    { model
+        | items = items
+        , ordering = remove id model.ordering
+    }
         |> withCmdNone
 
 
