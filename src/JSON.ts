@@ -1,3 +1,4 @@
+import firebase from "firebase/app";
 import { empty } from "fp-ts/Record";
 import { Option, none, some } from "fp-ts/Option";
 import { map } from "fp-ts/Either";
@@ -26,7 +27,13 @@ export namespace Decode {
 
   export const date: Decoder<Date> = (json) => {
     if (json instanceof Date) return success(json);
-    if (typeof json === "string") return success(new Date(json));
+
+    if (typeof json === "string" || typeof json === "number")
+      return success(new Date(json));
+
+    if (json instanceof firebase.firestore.Timestamp)
+      return success(json.toDate());
+
     return failure(new DecodeError("Date", json));
   };
 
@@ -63,6 +70,8 @@ export namespace Decode {
       [A in keyof T]: Decoder<T[A]>;
     },
   ): Decoder<T> => (json) => {
+    if (!json) return failure(new DecodeError("type", json));
+
     const final = {} as T;
     for (const key in decoders) {
       const decoder = decoders[key];

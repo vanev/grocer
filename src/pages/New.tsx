@@ -1,16 +1,47 @@
 import * as React from "react";
 import { Redirect } from "react-router-dom";
-import * as Id from "../Id";
-import * as GroceryList from "../GroceryList";
-import * as LocalStorage from "../LocalStorage";
+import { create as createGroceryList } from "../GroceryList";
+import useDatabase from "../hooks/useDatabase";
+import {
+  AsyncResult,
+  isInProgress,
+  inProgress,
+  isSuccess,
+  success,
+  isFailure,
+} from "../AsyncResult";
+import Page from "../components/Page";
+import Text from "../components/Text";
 
 const NewPage = () => {
-  const newList = GroceryList.create(new Date());
-  const listKey = Id.toString(newList.id);
+  const [path, setPath] = React.useState<AsyncResult<string>>(inProgress);
+  const asyncResultDb = useDatabase();
 
-  LocalStorage.setItem(listKey)(newList);
+  React.useEffect(() => {
+    if (!isSuccess(asyncResultDb)) return;
 
-  return <Redirect to={`/${listKey}`} />;
+    const db = asyncResultDb.value;
+
+    db.collection("groceryLists")
+      .add(createGroceryList(new Date()))
+      .then((doc) => setPath(success(`/${doc.id}`)));
+  }, [asyncResultDb]);
+
+  if (isInProgress(path))
+    return (
+      <Page>
+        <Text>Loading...</Text>
+      </Page>
+    );
+
+  if (isFailure(path))
+    return (
+      <Page>
+        <Text>Uh oh, something went wrong!</Text>
+      </Page>
+    );
+
+  return <Redirect to={path.value} />;
 };
 
 export default NewPage;
