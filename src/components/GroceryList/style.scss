@@ -1,0 +1,40 @@
+.GroceryList {
+  width: 100%;
+  max-width: 500px;
+
+  &--Name {
+    padding: 0.125em;
+    border: none;
+    border-bottom: 1px solid transparent;
+    outline: 0;
+    background: transparent;
+    font-family: var(--primary-font);
+    font-size: 1.25em;
+    font-weight: 600;
+    transition: border-color 250ms ease;
+    cursor: url("../../../icons/pencil.png"), auto;
+
+    &:focus {
+      border-bottom-color: black;
+    }
+  }
+
+  &--Name + &--Items {
+    margin-top: 1rem;
+  }
+
+  &--Items {
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+
+  &--Items + &--CreateItem {
+    margin-top: 1rem;
+  }
+
+  &--CreateItem {
+    display: block;
+    cursor: url("../../../icons/rocket.png"), auto;
+  }
+}
