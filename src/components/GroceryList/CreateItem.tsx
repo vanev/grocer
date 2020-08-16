@@ -1,20 +1,14 @@
 import * as React from "react";
-import { flow } from "fp-ts/function";
-import { eqString } from "fp-ts/Eq";
-import { GroceryList, orderingLens } from "../../GroceryList";
-import Updater from "../../Updater";
 import { create as createItem } from "../../Item";
 import { isInProgress, isFailure } from "../../AsyncResult";
-import { snoc } from "../../OrderedSet";
 import useItemsRef from "../../hooks/useItemsRef";
 
 interface Props {
-  groceryList: GroceryList;
-  update: Updater<GroceryList>;
   id: string;
+  onCreate: (id: string) => unknown;
 }
 
-const CreateItem = ({ groceryList, update, id }: Props) => {
+const CreateItem = ({ id, onCreate }: Props) => {
   const itemsRef = useItemsRef(id);
 
   if (isInProgress(itemsRef)) {
@@ -37,9 +31,8 @@ const CreateItem = ({ groceryList, update, id }: Props) => {
     <button
       className="GroceryList--CreateItem"
       onClick={() => {
-        itemsRef.value.add(createItem(new Date())).then((docRef) => {
-          update(flow(orderingLens.modify(snoc(eqString)(docRef.id))));
-        });
+        const item = createItem(new Date());
+        itemsRef.value.add(item).then((docRef) => onCreate(docRef.id));
       }}
     >
       Add Item

@@ -1,26 +1,18 @@
 import * as React from "react";
-import { some, none, isSome } from "fp-ts/Option";
-import { Item, completedAtLens } from "../../Item";
-import Updater from "../../Updater";
+import { Option, some, none, isSome } from "fp-ts/Option";
 
 interface Props {
-  item: Item;
-  update: Updater<Item>;
   id: string;
+  value: Option<Date>;
+  onChange: (completedAt: Option<Date>) => unknown;
 }
 
-const Completed = ({ item, update, id }: Props) => (
+const Completed = ({ id, value, onChange }: Props) => (
   <div className="Item--Completed">
     <input
       type="checkbox"
-      checked={isSome(completedAtLens.get(item))}
-      onChange={() =>
-        update(
-          completedAtLens.modify((completedAt) =>
-            isSome(completedAt) ? none : some(new Date()),
-          ),
-        )
-      }
+      checked={isSome(value)}
+      onChange={() => onChange(isSome(value) ? none : some(new Date()))}
       id={id}
     />
     <label htmlFor={id} />

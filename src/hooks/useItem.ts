@@ -9,9 +9,9 @@ import {
 } from "../AsyncResult";
 import { isFailure } from "../Result";
 import Updater from "../Updater";
-import useItemRef from "./useItemRef";
+import useItemRef, { DocumentRef } from "./useItemRef";
 
-type Bundle<T> = AsyncResult<[T, Updater<T>]>;
+type Bundle<T> = AsyncResult<[T, Updater<T>, DocumentRef]>;
 
 const useItem = (listId: string) => (id: string): Bundle<Item> => {
   const ref = useItemRef(listId)(id);
@@ -28,7 +28,7 @@ const useItem = (listId: string) => (id: string): Bundle<Item> => {
       const updater: Updater<Item> = (update) =>
         ref.value.update(update(item.right));
 
-      setBundle(success([item.right, updater]));
+      setBundle(success([item.right, updater, ref.value]));
     });
   }, [id, ref]);
 

@@ -2,10 +2,14 @@ import {
   uniq,
   map as arrayMap,
   filter as arrayFilter,
+  head as arrayHead,
   last as arrayLast,
+  init as arrayInit,
+  tail as arrayTail,
+  cons as arrayCons,
+  snoc as arraySnoc,
 } from "fp-ts/Array";
 import { Eq } from "fp-ts/Eq";
-import { Option } from "fp-ts/Option";
 import { flow } from "fp-ts/function";
 import { Decode as D } from "./JSON";
 
@@ -37,9 +41,26 @@ export const decodeOrderedSet = <T>(decodeT: D.Decoder<T>) =>
 
 export const size = <T>(osa: OrderedSet<T>): number => osa.values.length;
 
-export const last = <A>(osa: OrderedSet<A>): Option<A> => arrayLast(osa.values);
+export const head = flow(toArray, arrayHead);
+export const last = flow(toArray, arrayLast);
+export const init = flow(toArray, arrayInit);
+export const tail = flow(toArray, arrayTail);
 
-export const snoc = <A>(eq: Eq<A>) => (a: A) => (
-  osa: OrderedSet<A>,
-): OrderedSet<A> =>
-  fromArray(eq)([...arrayFilter((x: A) => x !== a)(osa.values), a]);
+export const cons = <A>(eq: Eq<A>) => (
+  a: A,
+): ((o: OrderedSet<A>) => OrderedSet<A>) =>
+  flow(toArray, arrayCons(a), fromArray(eq));
+
+export const add = <A>(eq: Eq<A>) => (
+  a: A,
+): ((o: OrderedSet<A>) => OrderedSet<A>) =>
+  flow(toArray, (as) => arraySnoc(as, a), fromArray(eq));
+
+export const remove = <A>(eq: Eq<A>) => (
+  a: A,
+): ((o: OrderedSet<A>) => OrderedSet<A>) =>
+  flow(
+    toArray,
+    arrayFilter((value) => !eq.equals(a, value)),
+    fromArray(eq),
+  );

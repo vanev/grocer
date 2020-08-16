@@ -1,12 +1,15 @@
 import "./style.scss";
 import * as React from "react";
+import { flow } from "fp-ts/function";
+import { eqString } from "fp-ts/Eq";
 import { isInProgress, isFailure } from "../../AsyncResult";
-import { GroceryList } from "../../GroceryList";
+import { toArray, add, remove } from "../../OrderedSet";
+import { GroceryList, ordering, name } from "../../GroceryList";
 import useGroceryList from "../../hooks/useGroceryList";
+import Text from "../Text";
 import Name from "./Name";
 import Items from "./Items";
 import CreateItem from "./CreateItem";
-import Text from "../Text";
 
 interface Props {
   id: string;
@@ -33,11 +36,25 @@ const GroceryList = ({ id }: Props) => {
 
   const [groceryList, update] = result.value;
 
+  const onNameChange = flow(name.set, update);
+
+  const onItemCreate = (id: string) =>
+    update(ordering.modify(add(eqString)(id)));
+
+  const onItemDelete = (id: string) => () =>
+    update(ordering.modify(remove(eqString)(id)));
+
   return (
     <div className="GroceryList">
-      <Name groceryList={groceryList} update={update} />
-      <Items groceryList={groceryList} update={update} id={id} />
-      <CreateItem groceryList={groceryList} update={update} id={id} />
+      <Name value={name.get(groceryList)} onChange={onNameChange} />
+
+      <Items
+        id={id}
+        itemIds={flow(ordering.get, toArray)(groceryList)}
+        onItemDelete={onItemDelete}
+      />
+
+      <CreateItem id={id} onCreate={onItemCreate} />
     </div>
   );
 };

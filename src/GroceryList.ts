@@ -30,9 +30,9 @@ export const decodeGroceryList = D.type<GroceryList>({
 
 const lens = Lens.fromProp<GroceryList>();
 
-export const createdAtLens = lens("createdAt");
-export const nameLens = lens("name");
-export const orderingLens = lens("ordering");
+export const createdAt = lens("createdAt");
+export const name = lens("name");
+export const ordering = lens("ordering");
 
 // export const itemLens = (id: Id) =>
 //   itemsLens.composeOptional(Items.itemLens(id));

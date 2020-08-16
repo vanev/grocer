@@ -8,11 +8,6 @@
     }
   }
 
-  &._deleted {
-    opacity: 0.2;
-    filter: grayscale(1);
-  }
-
   &--Completed {
     position: relative;
     display: block;
@@ -71,7 +66,7 @@
     }
   }
 
-  &--Deleted {
+  &--Delete {
     display: block;
     width: auto;
     height: auto;

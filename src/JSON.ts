@@ -1,4 +1,4 @@
-import firebase from "firebase/app";
+import * as firebase from "firebase/app";
 import { empty } from "fp-ts/Record";
 import { Option, none, some } from "fp-ts/Option";
 import { map } from "fp-ts/Either";

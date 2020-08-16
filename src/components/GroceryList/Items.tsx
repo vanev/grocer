@@ -1,25 +1,32 @@
 import * as React from "react";
 import { map } from "fp-ts/Array";
-import { flow } from "fp-ts/function";
-import { GroceryList, orderingLens } from "../../GroceryList";
-import { toArray } from "../../OrderedSet";
-import Updater from "../../Updater";
-import Item from "../Item";
+import { Item } from "../../Item";
+import ItemComponent from "../Item";
 
 interface Props {
-  groceryList: GroceryList;
-  update: Updater<GroceryList>;
   id: string;
+  itemIds: Array<string>;
+  onItemChange?: (id: string) => (item: Item) => unknown;
+  onItemDelete?: (id: string) => () => unknown;
 }
 
-const Items = ({ groceryList, id }: Props) => {
-  const renderItems = flow(
-    orderingLens.get,
-    toArray,
-    map((itemId) => <Item key={itemId} listId={id} id={itemId} />),
-  );
-
-  return <ul className="GroceryList--Items">{renderItems(groceryList)}</ul>;
-};
+const Items = ({
+  id,
+  itemIds,
+  onItemChange = () => () => {},
+  onItemDelete = () => () => {},
+}: Props) => (
+  <ul className="GroceryList--Items">
+    {map((itemId: string) => (
+      <ItemComponent
+        key={itemId}
+        listId={id}
+        id={itemId}
+        onChange={onItemChange(itemId)}
+        onDelete={onItemDelete(itemId)}
+      />
+    ))(itemIds)}
+  </ul>
+);
 
 export default Items;

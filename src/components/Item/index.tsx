@@ -1,20 +1,29 @@
 import "./style.scss";
 import * as React from "react";
 import classnames from "classnames";
-import { isSome } from "fp-ts/Option";
+import { flow } from "fp-ts/function";
+import { Option, isSome } from "fp-ts/Option";
 import { isInProgress, isFailure } from "../../AsyncResult";
-import { Item, completedAtLens, deletedAtLens } from "../../Item";
+import { Item, completedAt, description } from "../../Item";
+import tap from "../../tap";
 import useItem from "../../hooks/useItem";
 import Completed from "./Completed";
 import Description from "./Description";
-import Deleted from "./Deleted";
+import Delete from "./Delete";
 
 interface Props {
   listId: string;
   id: string;
+  onChange?: (item: Item) => unknown;
+  onDelete?: () => unknown;
 }
 
-const Item = ({ listId, id }: Props) => {
+const Item = ({
+  listId,
+  id,
+  onChange = () => {},
+  onDelete = () => {},
+}: Props) => {
   const result = useItem(listId)(id);
 
   if (isInProgress(result)) {
@@ -25,18 +34,37 @@ const Item = ({ listId, id }: Props) => {
     return <div className="Item _error">{result.error.message}</div>;
   }
 
-  const [item, update] = result.value;
+  const [item, update, ref] = result.value;
+
+  const onCompletedAtChange = (value: Option<Date>) =>
+    update(flow(completedAt.set(value), tap(onChange)));
+
+  const onDescriptionChange = (value: string) =>
+    update(flow(description.set(value), tap(onChange)));
+
+  const onDeleteClick = () => {
+    onDelete();
+    ref.delete();
+  };
 
   return (
     <li
       className={classnames(`Item`, {
-        _completed: isSome(completedAtLens.get(item)),
-        _deleted: isSome(deletedAtLens.get(item)),
+        _completed: isSome(completedAt.get(item)),
       })}
     >
-      <Completed item={item} update={update} id={id} />
-      <Description item={item} update={update} />
-      <Deleted item={item} update={update} />
+      <Completed
+        value={completedAt.get(item)}
+        onChange={onCompletedAtChange}
+        id={id}
+      />
+
+      <Description
+        value={description.get(item)}
+        onChange={onDescriptionChange}
+      />
+
+      <Delete onClick={onDeleteClick} />
     </li>
   );
 };

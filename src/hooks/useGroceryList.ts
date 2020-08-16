@@ -9,9 +9,9 @@ import {
 } from "../AsyncResult";
 import { isFailure } from "../Result";
 import Updater from "../Updater";
-import useGroceryListRef from "./useGroceryListRef";
+import useGroceryListRef, { DocumentRef } from "./useGroceryListRef";
 
-type Bundle<T> = AsyncResult<[T, Updater<T>]>;
+type Bundle<T> = AsyncResult<[T, Updater<T>, DocumentRef]>;
 
 const useGroceryList = (id: string): Bundle<GroceryList> => {
   const ref = useGroceryListRef(id);
@@ -28,7 +28,7 @@ const useGroceryList = (id: string): Bundle<GroceryList> => {
       const updater: Updater<GroceryList> = (update) =>
         ref.value.update(update(groceryList.right));
 
-      setBundle(success([groceryList.right, updater]));
+      setBundle(success([groceryList.right, updater, ref.value]));
     });
   }, [id, ref]);
 
